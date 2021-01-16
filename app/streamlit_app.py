@@ -9,7 +9,6 @@ import tensorflow.compat.v1 as tf
 import matplotlib.pyplot as plt
 import utils as ut
 
-st.server.maxUploadSize = 10
 
 # matplotlib params
 plt.rcParams['image.interpolation'] = 'nearest'
