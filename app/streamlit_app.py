@@ -1,31 +1,35 @@
 import os
-
 import numpy as np
 import streamlit as st
 import random
 import importlib  
 from webcam import webcam
 from PIL import Image 
-
 import tensorflow.compat.v1 as tf
 import matplotlib.pyplot as plt
 import utils as ut
 
+st.server.maxUploadSize = 10
+
+# matplotlib params
 plt.rcParams['image.interpolation'] = 'nearest'
 plt.rcParams['image.cmap'] = 'gray'
 
-tf.compat.v1.disable_eager_execution()
+# old tensorflow
+tf.disable_eager_execution()
 
 nr_max_faces=20
 nc=6
 
-str_emotions = ['angry','scared','happy','sad','surprised','normal']
-
+# load my V1 tensorflow graph as default 
 y, xin, keep_prob_input = ut.set_tf_model_graph(nr_max_faces)
 sess = tf.Session()
 saver = tf.train.Saver()
+
+# restore the weights from file
 saver.restore(sess, 'mlmodels/face-emotion-recognition/model_6layers.ckpt')
 
+### Streamlit app
 st.title("Facial Emotion Recognizer")
 st.subheader("&#8592; Choose the image source on the sidebar:")
 st.markdown("test image, webcam, or upload")
@@ -56,8 +60,8 @@ else:
 
     st.subheader('Found {} faces in the picture above:'.format(len(faces)) )
 
-    if(len(faces)):      
-        #creating the blank test vector
+    if len(faces):      
+        #creating the blank test vector, must be length of batch_size (old v1 tensorflow)
         data_orig = np.zeros([nr_max_faces, 48,48])
 
         nr_faces = min(len(faces), 20)
@@ -66,27 +70,12 @@ else:
         for i in range(0, nr_faces):
             data_orig[i,:,:] = ut.contrast_stretch(faces[i,:,:])
 
-            #preparing image and putting it into the batch 
-            n = data_orig.shape[0]
-            data = np.zeros([n,48**2])
-            for i in range(n):
-                xx = data_orig[i,:,:]
-                xx -= np.mean(xx)
-                xx /= np.linalg.norm(xx)
-                data[i,:] = xx.reshape(2304); #np.reshape(xx,[-1])
+        #preparing images
+        data = ut.preprocess_faces(data_orig)
 
+        # run the DNN
         result = sess.run([y], feed_dict={xin: data, keep_prob_input: 1.0})
         
         for i in range(0, nr_faces):
-            emotion_nr = np.argmax(result[0][i])
-
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 3.5))
-            ax1.imshow(np.reshape(data[i,:], (48,48)))
-            ax1.axis('off')
-            ax1.set_title(str_emotions[emotion_nr])
-            ax2.bar(np.arange(nc) , result[0][i])
-            ax2.set_xticks(np.arange(nc))
-            ax2.set_xticklabels(str_emotions, rotation=45)
-            ax2.set_yticks([])
-
+            plt = ut.plot_face(result[0][i], data[i,:])
             st.pyplot(plt)

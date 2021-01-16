@@ -12,6 +12,10 @@ import tensorflow.compat.v1 as tf
 
 from scipy.sparse import coo_matrix
 
+nc=6
+#               0       1        2       3     4           5
+str_emotions = ['angry','scared','happy','sad','surprised','normal']
+
 # returns the array of 48x48 images of faces and the whole image with rectangles over the faces img_path = 'camera' or 'file.png' or 'file.jpg' 
 def get_faces_from_img(image):
     
@@ -81,75 +85,6 @@ def remap(img, min, max):
 def contrast_stretch(img ):
     min, max = get_min_max( img );
     return remap(img, min, max)
-
-#calculating partial accuracy (for each clas separately)
-def calc_partial_accuracy(tset, result, emlabel):
-    
-    tsetlabels = np.where(tset == emlabel)[0];
-    resultlabels = np.where(result == emlabel)[0];
-
-    errors =0;
-    for label in resultlabels :
-        if label not in tsetlabels:
-            errors += 1;
-    
-    for label in tsetlabels :
-        if label not in resultlabels:
-            errors += 1;
-    
-    return (len(resultlabels)+ len(tsetlabels)- errors)/ (len(resultlabels)+ len(tsetlabels))
-
-# loads the  csv labelled emotion images dataset 
-def load_dataset(reader, num_data, hist_div, hist_threshold):
-    #preparing arrays
-    emotions = np.zeros(num_data)
-    images = np.zeros((num_data,48,48))
-    strange_im = np.zeros((int(num_data/10),48,48)) # the dataset contains <10% of strange img
-
-    # for image pre-filtering
-    num_strange = 0; #number of removed images
-    num_skipped = 0; #hapy images skip counter
-    rownum =0;
-    #parsing each row
-    for row in reader:
-        #(column0) extract the emotion label
-        #!!!! convert 1 and 0 together !!!!
-        if( (row[0] == '0') or (row[0] == '1' ) ):
-            emotions[rownum] = '0';
-        else :
-            emotions[rownum] = str(int(row[0])-1)
-
-        #ignore 1/3 of happy cklass pic, there are too many in relative to to others  
-        if( (emotions[rownum] != 2 ) or ((emotions[rownum] == 2) and (np.random.choice([0,1,1]) == 1) )): 
-
-            #(column1) extract the image data, parse it and convert into 48x48 array of integers
-            images[rownum] = np.asarray([int(s) for s in row[1].split(' ')]).reshape(48,48)
-
-            #stretching contrast of the image
-            images[rownum] = contrast_stretch(images[rownum])
-
-            #calculating the histogram and erasing "strange" images
-            y_h, x_h = np.histogram( images[ rownum ] , 100 );
-            if y_h.max() > hist_threshold  : 
-                # if img is 'strange'
-                strange_im[num_strange,:,:] = images[rownum,:,:];
-                num_data = num_data - 1;
-                images = np.delete(images, rownum, axis = 0);
-                emotions = np.delete(emotions, rownum)
-                #print('deleted:',rownum, y_h.max())
-                num_strange += 1;   
-            else:
-                rownum += 1
-            if not rownum%500:
-                print("loaded %2.0f" % ((float(rownum ) /num_data)*100) 
-                      + '% of dataset ('+ str(rownum+num_strange)+'/'+ str(num_data) + '). Filtered images: ' + str(num_strange) )
-        else:
-            images = np.delete(images, rownum, axis = 0);
-            emotions = np.delete(emotions, rownum)
-            num_skipped +=1; # skip some happy images 
-    
-    return images, emotions, strange_im, num_strange, num_skipped
-
 
 def set_tf_model_graph(nr_max_faces):
     d = 2304 #train_data.shape[1]
@@ -280,3 +215,27 @@ def set_tf_model_graph(nr_max_faces):
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     return y, xin, keep_prob_input
+
+def plot_face(classified_emotion_vector, face_img):
+    emotion_nr = np.argmax(classified_emotion_vector)
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 3.5))
+    ax1.imshow(np.reshape(face_img, (48,48)))
+    ax1.axis('off')
+    ax1.set_title(str_emotions[emotion_nr])
+    ax2.bar(np.arange(nc) , classified_emotion_vector)
+    ax2.set_xticks(np.arange(nc))
+    ax2.set_xticklabels(str_emotions, rotation=45)
+    ax2.set_yticks([])
+
+    return plt
+
+def preprocess_faces(data_orig):
+    n = data_orig.shape[0]
+    data = np.zeros([n,48**2])
+    for i in range(n):
+        xx = data_orig[i,:,:]
+        xx -= np.mean(xx)
+        xx /= np.linalg.norm(xx)
+        data[i,:] = xx.reshape(2304); #np.reshape(xx,[-1])
+    return data
