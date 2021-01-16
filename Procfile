@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run app/streamlit_app.py
+web: sh setup.sh && streamlit run app/streamlit_app.py --server.maxUploadSize=2 logger.level=debug
