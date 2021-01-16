@@ -6,3 +6,4 @@ tensorflow-cpu==2.4.0
 opencv-python==4.5.1.48
 matplotlib==3.3.3
 Pillow==8.0.1
+streamlit-webcam-example==0.1.0
