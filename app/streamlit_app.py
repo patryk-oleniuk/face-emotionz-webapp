@@ -9,6 +9,10 @@ import tensorflow.compat.v1 as tf
 import matplotlib.pyplot as plt
 import utils as ut
 
+import footer
+
+from matplotlib.backends.backend_agg import RendererAgg
+_lock = RendererAgg.lock
 
 # matplotlib params
 plt.rcParams['image.interpolation'] = 'nearest'
@@ -32,8 +36,10 @@ saver.restore(sess, 'mlmodels/face-emotion-recognition/model_6layers.ckpt')
 st.title("Facial Emotion Recognizer")
 st.subheader("&#8592; Choose the image source on the sidebar:")
 st.markdown("test image, webcam, or upload")
-st.subheader('''First, OpenCV will detect faces.''')
-st.subheader('''Then, Tensorflow Deep Neural Network will recognize their emotions.''')
+st.markdown("Frontal face images without glasses work best. Image is not stored or saved in any form.")
+st.markdown("Dislaimer: Use this app at your own risk. Result might be mind-boggling.")
+st.subheader('''First, OpenCV will detect faces, (based on [this](https://realpython.com/face-recognition-with-python/)).''')
+st.subheader('''Then, Tensorflow will recognize their emotions using [my custom neural net](https://github.com/patryk-oleniuk/emotion_recognition).''')
 
 source = st.sidebar.selectbox( "Image Source? ", ('Test Image', 'Upload', 'Webcam') )
 
@@ -76,5 +82,8 @@ else:
         result = sess.run([y], feed_dict={xin: data, keep_prob_input: 1.0})
         
         for i in range(0, nr_faces):
-            plt = ut.plot_face(result[0][i], data[i,:])
-            st.pyplot(plt)
+            with _lock: # https://matplotlib.org/3.3.2/faq/howto_faq.html#working-with-threads
+                plt = ut.plot_face(result[0][i], data[i,:])
+                st.pyplot(plt)
+
+footer.footer()

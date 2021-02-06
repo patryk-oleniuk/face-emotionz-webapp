@@ -6,3 +6,4 @@ matplotlib==3.3.3
 Pillow==8.0.1
 streamlit-webcam-example==0.1.0
 scipy
+htbuilder
